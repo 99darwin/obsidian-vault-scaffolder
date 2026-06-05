@@ -1,0 +1,38 @@
+filters:
+  and:
+    - type == "signal"
+views:
+  - type: table
+    name: All Signals
+    order:
+      - file.name
+      - signal_type
+      - direction
+      - source
+      - observed_at
+      - project
+    sort:
+      - property: observed_at
+        direction: DESC
+
+  - type: table
+    name: Bullish
+    filters:
+      and:
+        - direction == "bullish"
+    order:
+      - file.name
+      - signal_type
+      - source
+      - observed_at
+
+  - type: table
+    name: Bearish
+    filters:
+      and:
+        - direction == "bearish"
+    order:
+      - file.name
+      - signal_type
+      - source
+      - observed_at

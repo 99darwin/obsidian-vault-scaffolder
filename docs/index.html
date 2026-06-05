@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>obsidian-vault-scaffolder · turn a project spec into a navigable Obsidian vault</title>
+<meta name="description" content="A Claude Skill that atomizes a software project spec into a PARA-style Obsidian vault — folders, Bases, Templates, AGENTS.md — in one command.">
+<meta property="og:title" content="obsidian-vault-scaffolder">
+<meta property="og:description" content="Turn a project spec into a navigable, queryable, AI-friendly Obsidian vault in one command.">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://rsms.me/">
+<link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+<style>
+  :root {
+    --bg: #0d0d0e;
+    --surface: #16161a;
+    --border: #26262d;
+    --text: #e7e7ea;
+    --text-muted: #8a8a93;
+    --text-faint: #5e5e66;
+    --accent: #d97757;
+    --accent-soft: rgba(217, 119, 87, 0.12);
+    --accent-bright: #ed8d6f;
+    --green: #7fa05c;
+    --max: 880px;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #faf9f5;
+      --surface: #ffffff;
+      --border: #e8e6dc;
+      --text: #141413;
+      --text-muted: #5e5e63;
+      --text-faint: #999;
+      --accent: #c4613f;
+      --accent-soft: rgba(196, 97, 63, 0.08);
+      --accent-bright: #b85534;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    font-feature-settings: 'cv11', 'ss01', 'ss03';
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    font-size: 16px;
+  }
+  .wrap { max-width: var(--max); margin: 0 auto; padding: 0 24px; }
+
+  /* ─── Nav ─── */
+  nav {
+    border-bottom: 1px solid var(--border);
+    padding: 16px 0;
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 10;
+    backdrop-filter: blur(10px);
+  }
+  nav .wrap { display: flex; justify-content: space-between; align-items: center; }
+  nav .brand { font-weight: 600; font-size: 15px; letter-spacing: -0.01em; }
+  nav .brand .dot { color: var(--accent); }
+  nav .links { display: flex; gap: 24px; font-size: 14px; }
+  nav .links a {
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+  nav .links a:hover { color: var(--text); }
+
+  /* ─── Hero ─── */
+  .hero { padding: 80px 0 60px; }
+  .hero h1 {
+    font-size: 48px;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    line-height: 1.1;
+    margin-bottom: 24px;
+  }
+  .hero h1 .accent { color: var(--accent); }
+  .hero p.tagline {
+    font-size: 19px;
+    color: var(--text-muted);
+    max-width: 640px;
+    margin-bottom: 32px;
+    line-height: 1.55;
+  }
+  .install-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: stretch; margin-bottom: 16px; }
+  .install-row .cmd {
+    flex: 1;
+    min-width: 280px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 18px;
+    font-family: 'SF Mono', 'JetBrains Mono', Menlo, monospace;
+    font-size: 14px;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .install-row .cmd::before { content: "$"; color: var(--accent); margin-right: 4px; }
+  .install-row .btn {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 14px 24px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .install-row .btn:hover { background: var(--accent-bright); }
+  .install-row .btn-secondary {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .install-row .btn-secondary:hover { background: var(--surface); }
+  .hint { font-size: 13px; color: var(--text-faint); margin-top: 12px; }
+  .hint code { background: var(--surface); padding: 2px 6px; border-radius: 4px; font-size: 12px; color: var(--text-muted); }
+
+  /* ─── Sections ─── */
+  section { padding: 60px 0; border-top: 1px solid var(--border); }
+  section h2 {
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    margin-bottom: 12px;
+  }
+  section .lede {
+    color: var(--text-muted);
+    margin-bottom: 32px;
+    font-size: 16px;
+    max-width: 600px;
+  }
+
+  /* ─── Before/after comparison ─── */
+  .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 24px; }
+  @media (max-width: 700px) { .compare { grid-template-columns: 1fr; } }
+  .compare .col {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    overflow: hidden;
+  }
+  .compare .col .label {
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+  }
+  .compare .col.bad .label { color: var(--text-muted); }
+  .compare .col.good .label { color: var(--accent); }
+  .compare pre {
+    font-family: 'SF Mono', 'JetBrains Mono', Menlo, monospace;
+    font-size: 12px;
+    line-height: 1.55;
+    color: var(--text);
+    white-space: pre;
+    overflow-x: auto;
+  }
+
+  /* ─── Code block ─── */
+  .code-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    margin: 16px 0;
+    font-family: 'SF Mono', 'JetBrains Mono', Menlo, monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text);
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .code-block .prompt::before { content: "You: "; color: var(--accent); font-weight: 600; }
+  .code-block .response::before { content: "Claude: "; color: var(--green); font-weight: 600; }
+
+  /* ─── Stats / benchmarks ─── */
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 24px; }
+  @media (max-width: 700px) { .stats { grid-template-columns: 1fr; } }
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+  }
+  .stat .num {
+    font-size: 32px;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: -0.02em;
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+  .stat .label { font-size: 13px; color: var(--text-muted); line-height: 1.4; }
+
+  /* ─── How it works / steps ─── */
+  .steps { display: grid; gap: 16px; margin-top: 24px; }
+  .step {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    display: grid;
+    grid-template-columns: 40px 1fr;
+    gap: 16px;
+  }
+  .step .num {
+    width: 32px; height: 32px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .step h3 { font-size: 16px; margin-bottom: 6px; font-weight: 600; }
+  .step p { color: var(--text-muted); font-size: 14px; }
+  .step code { background: var(--bg); padding: 1px 6px; border-radius: 4px; font-size: 12px; }
+
+  /* ─── Modes table ─── */
+  .modes {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-top: 24px;
+  }
+  .modes table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .modes th, .modes td { padding: 14px 20px; text-align: left; border-bottom: 1px solid var(--border); }
+  .modes th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500; background: var(--bg); }
+  .modes tr:last-child td { border-bottom: none; }
+  .modes td:first-child { font-weight: 600; color: var(--accent); font-family: 'SF Mono', monospace; font-size: 13px; }
+
+  /* ─── Quote blocks ─── */
+  .quote {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--text-faint);
+    border-radius: 8px;
+    padding: 18px 22px;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .quote.bad { border-left-color: var(--text-faint); }
+  .quote.good { border-left-color: var(--accent); }
+  .quote .meta {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 10px;
+    font-family: 'SF Mono', 'JetBrains Mono', Menlo, monospace;
+  }
+  .quote.good .meta { color: var(--accent); }
+  .quote p { color: var(--text); font-style: italic; }
+  .quote code { font-style: normal; background: var(--bg); padding: 1px 6px; border-radius: 4px; font-size: 12px; font-family: 'SF Mono', monospace; }
+
+  .quote-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+  @media (max-width: 700px) { .quote-pair { grid-template-columns: 1fr; } }
+
+  .sub-h {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    margin-top: 40px;
+    margin-bottom: 10px;
+    letter-spacing: -0.005em;
+  }
+
+  .raw-link {
+    margin-top: 24px;
+    font-size: 14px;
+    color: var(--text-muted);
+  }
+  .raw-link a { color: var(--accent); text-decoration: none; }
+  .raw-link a:hover { text-decoration: underline; }
+
+  /* ─── Footer ─── */
+  footer { padding: 60px 0 40px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 14px; }
+  footer .row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
+  footer a { color: var(--text-muted); text-decoration: none; }
+  footer a:hover { color: var(--text); }
+
+  /* ─── Utilities ─── */
+  .accent { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <div class="brand">obsidian-vault-scaffolder<span class="dot">.</span></div>
+    <div class="links">
+      <a href="#how">How it works</a>
+      <a href="#modes">Modes</a>
+      <a href="#install">Install</a>
+      <a href="https://github.com/99darwin/obsidian-vault-scaffolder">GitHub →</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <h1>Turn a project spec into a<br><span class="accent">navigable</span> Obsidian vault.</h1>
+    <p class="tagline">
+      A Claude Skill that atomizes a software-project spec into a PARA-style Obsidian vault —
+      folders, Bases, templates, an AGENTS.md briefing for future AI sessions —
+      in one command. Zero copy-paste.
+    </p>
+
+    <div class="install-row">
+      <div class="cmd">claude skill install obsidian-vault-scaffolder.skill</div>
+      <a href="https://github.com/99darwin/obsidian-vault-scaffolder/releases/latest" class="btn">
+        Download skill ↓
+      </a>
+      <a href="https://github.com/99darwin/obsidian-vault-scaffolder" class="btn btn-secondary">
+        View on GitHub
+      </a>
+    </div>
+    <p class="hint">Requires Claude Code, Claude Desktop, or any Claude environment that supports skills.</p>
+  </div>
+</header>
+
+<section id="how">
+  <div class="wrap">
+    <h2>What it does</h2>
+    <p class="lede">A 1500-line spec.md is a write-once, read-never artifact. The same content split into atomic notes with queryable frontmatter? Navigable, linkable, AI-friendly.</p>
+
+    <div class="compare">
+      <div class="col bad">
+        <div class="label">Before — your spec.md</div>
+        <pre>spec.md
+└── 1,847 lines of headings,
+    code blocks, tables,
+    open questions buried
+    on line 1,432, risks on
+    line 1,609, and the
+    whole thing has been
+    untouched since you
+    wrote it 3 months ago.</pre>
+      </div>
+      <div class="col good">
+        <div class="label">After — your Obsidian vault</div>
+<pre>vault/
+├── 00_Index/
+│   ├── HOME.md
+│   ├── AGENTS.md
+│   └── MOCs/Project MOC.md
+├── 10_Projects/Project/
+│   ├── Project Charter.md
+│   ├── Architecture/ (3)
+│   ├── Brief/ (4)
+│   ├── Specs/ (9)
+│   ├── Open Questions/ (6)
+│   ├── Risks/ (5)
+│   └── Plans/ (6)
+└── _Bases/
+    ├── Open Questions.base
+    ├── Risks.base
+    └── Project Tracker.base</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>The flow</h2>
+    <p class="lede">Give Claude (with this skill installed) a project spec — or just a one-liner about a project you're about to start.</p>
+
+    <div class="code-block"><span class="prompt"></span>I'm starting a project called Reservoir — a queue/stream broker
+meant to compete with Redpanda at the low end. The v0.1 spec is at
+~/specs/reservoir.md. Set me up an Obsidian vault for it. No
+follow-ups, just defaults.
+
+<span class="response"></span>Reading the skill... reading the spec...
+Running scaffold_vault.py... 45 paths created.
+Atomizing the spec into discrete notes...
+  ✓ 9 spec sections
+  ✓ 6 open questions
+  ✓ 5 risks
+  ✓ 4 architecture notes
+  ✓ Project Charter populated from Executive Context
+Verifying... all 47 notes have valid type: frontmatter. ✓
+
+Vault is at ~/Documents/Obsidian/Reservoir.
+Open: ~/Documents/Obsidian/Reservoir/00_Index/HOME.md</div>
+  </div>
+</section>
+
+<section id="modes">
+  <div class="wrap">
+    <h2>Four modes, sharply distinguished</h2>
+    <p class="lede">The skill handles the full range of "I have something to start with" cases — from a formal spec down to a single sentence.</p>
+
+    <div class="modes">
+      <table>
+        <thead>
+          <tr><th>Mode</th><th>Trigger</th><th>Output</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>spec-driven</td>
+            <td>Markdown / Word / PDF spec</td>
+            <td>~50 atomized notes. Charter populated.</td>
+          </tr>
+          <tr>
+            <td>brief-driven</td>
+            <td>Slack post / transcript / multi-paragraph brief</td>
+            <td>~20 atomized notes. Charter populated from brief.</td>
+          </tr>
+          <tr>
+            <td>one-liner</td>
+            <td>A sentence ("a self-hosted Vercel for Node services")</td>
+            <td>Scaffold only. Charter seeded with the description.</td>
+          </tr>
+          <tr>
+            <td>skeleton</td>
+            <td>Truly no description provided</td>
+            <td>Empty Charter shell. Rare.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Tested, benchmarked, iterated</h2>
+    <p class="lede">Two iterations of the skill across three test cases. Six gaps surfaced in iteration 1; every one fixed with a concrete change traceable to subagent feedback.</p>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="num">47</div>
+        <div class="label">atomized notes from a 286-line spec, in one shot</div>
+      </div>
+      <div class="stat">
+        <div class="num">6→0</div>
+        <div class="label">skill gaps closed between iteration 1 and iteration 2</div>
+      </div>
+      <div class="stat">
+        <div class="num">100%</div>
+        <div class="label">of notes have valid frontmatter (verified by the bundled <code>verify</code> subcommand)</div>
+      </div>
+    </div>
+
+    <h3 class="sub-h">v1 → v2, by test case</h3>
+    <div class="modes" style="margin-top: 16px;">
+      <table>
+        <thead>
+          <tr><th>Test case</th><th>v1 baseline</th><th>v2 (current)</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>spec-driven<br><span style="color: var(--text-faint); font-size: 12px; font-weight: 400;">286-line technical spec</span></td>
+            <td>46 notes, ad-hoc layout, Charter left blank</td>
+            <td>55 notes, full PARA atomization, Charter populated from Executive Context</td>
+          </tr>
+          <tr>
+            <td>one-liner<br><span style="color: var(--text-faint); font-size: 12px; font-weight: 400;">no spec, sentence-only</span></td>
+            <td>Defaulted to skeleton mode, dropped the user's pitch</td>
+            <td>Charter seeded with the user's description via <code>charter_seed</code></td>
+          </tr>
+          <tr>
+            <td>existing vault<br><span style="color: var(--text-faint); font-size: 12px; font-weight: 400;">add 2nd project</span></td>
+            <td>HOME.md / AGENTS.md edited manually with regex patches</td>
+            <td>Script auto-splices HOME, rewrites AGENTS as project-agnostic</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 class="sub-h">What independent subagents said, before and after</h3>
+    <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 16px;">Same test (existing-vault add-second-project), independent subagent runs, v1 vs. v2:</p>
+
+    <div class="quote-pair">
+      <div class="quote bad">
+        <div class="meta">v1 baseline</div>
+        <p>"v1's only existing-vault behavior is <code>skip files that exist</code>. Every add-project-to-existing-vault use ends up requiring manual <code>sed</code>/<code>python</code> patches to splice the new project into Active Projects + MOC list + AGENTS. <code>AGENTS</code> is fundamentally single-project shaped."</p>
+      </div>
+      <div class="quote good">
+        <div class="meta">v2 with skill</div>
+        <p>"Script reported <code>~ HOME.md (Updated HOME.md with Tessellate)</code>. Inspection shows both wikilinks added under Active Projects and Maps of Content, with existing entries preserved verbatim. Script reported <code>~ AGENTS.md (rewritten as project-agnostic)</code>. All paths now read <code>10_Projects/&lt;Project&gt;/...</code> instead of being hardcoded."</p>
+      </div>
+    </div>
+
+    <p class="raw-link">Full methodology, all six closed gaps, and per-run timing data: <a href="https://github.com/99darwin/obsidian-vault-scaffolder/tree/main/benchmarks">benchmarks/</a></p>
+  </div>
+</section>
+
+<section id="install">
+  <div class="wrap">
+    <h2>Install</h2>
+    <p class="lede">Three ways to use it, depending on how you work.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="num">1</div>
+        <div>
+          <h3>As a Claude Skill <span style="color: var(--green); font-size: 12px; font-weight: 500;">(recommended)</span></h3>
+          <p>Download <code>obsidian-vault-scaffolder.skill</code> from <a href="https://github.com/99darwin/obsidian-vault-scaffolder/releases" style="color: var(--accent);">Releases</a> and install with <code>claude skill install</code>. Then ask Claude to scaffold a vault for your next project.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="num">2</div>
+        <div>
+          <h3>From source</h3>
+          <p>Clone the repo, point your Claude config at the directory. Useful if you want to customize the templates or extend the atomization playbook.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="num">3</div>
+        <div>
+          <h3>Standalone Python script</h3>
+          <p>The scaffolder works without Claude. <code>python3 scripts/scaffold_vault.py --config config.json</code> produces the folder layout, Bases, and templates. The atomization is the part you'd lose.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>The conventions, briefly</h2>
+    <p class="lede">Five rules that make the vault queryable, navigable, and AI-friendly. Full docs in the repo.</p>
+    <ul style="list-style: none; display: grid; gap: 12px; margin-top: 16px;">
+      <li style="display: grid; grid-template-columns: 24px 1fr; gap: 12px;"><span class="accent">→</span><span>Top-level folders are numbered (<code>00_Index</code>, <code>10_Projects</code>, <code>30_Resources</code>) so they sort predictably.</span></li>
+      <li style="display: grid; grid-template-columns: 24px 1fr; gap: 12px;"><span class="accent">→</span><span>Frontmatter <code>type:</code> is non-negotiable on every note. Bases break without it.</span></li>
+      <li style="display: grid; grid-template-columns: 24px 1fr; gap: 12px;"><span class="accent">→</span><span>One concept per note. Each risk and open question gets its own file.</span></li>
+      <li style="display: grid; grid-template-columns: 24px 1fr; gap: 12px;"><span class="accent">→</span><span>Filenames prefix-sorted: <code>Risk — X.md</code>, <code>Open Question — X.md</code>.</span></li>
+      <li style="display: grid; grid-template-columns: 24px 1fr; gap: 12px;"><span class="accent">→</span><span><code>AGENTS.md</code> exists so future AI agents have a one-stop briefing on vault conventions.</span></li>
+    </ul>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="row">
+      <div>
+        Built by <a href="https://github.com/99darwin">Nick Saponaro</a> with Claude.
+        MIT licensed.
+      </div>
+      <div>
+        <a href="https://github.com/99darwin/obsidian-vault-scaffolder">GitHub</a> ·
+        <a href="https://github.com/99darwin/obsidian-vault-scaffolder/blob/main/SKILL.md">SKILL.md</a> ·
+        <a href="https://github.com/99darwin/obsidian-vault-scaffolder/tree/main/examples">Examples</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

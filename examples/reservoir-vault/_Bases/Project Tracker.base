@@ -1,0 +1,26 @@
+filters:
+  and:
+    - type == "project"
+views:
+  - type: table
+    name: All Projects
+    order:
+      - file.name
+      - status
+      - phase
+      - owner
+      - target_launch
+    sort:
+      - property: status
+        direction: ASC
+
+  - type: table
+    name: Active
+    filters:
+      and:
+        - status == "active"
+    order:
+      - file.name
+      - phase
+      - owner
+      - target_launch

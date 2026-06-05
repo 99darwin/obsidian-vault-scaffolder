@@ -1,0 +1,42 @@
+filters:
+  and:
+    - type == "risk"
+views:
+  - type: table
+    name: All Risks
+    order:
+      - file.name
+      - severity
+      - likelihood
+      - status
+      - owner
+      - project
+    sort:
+      - property: severity
+        direction: ASC
+
+  - type: table
+    name: Critical & High
+    filters:
+      or:
+        - severity == "critical"
+        - severity == "high"
+    order:
+      - file.name
+      - severity
+      - likelihood
+      - status
+      - owner
+      - project
+
+  - type: table
+    name: Open / Unmitigated
+    filters:
+      and:
+        - status != "mitigated"
+        - status != "resolved"
+    order:
+      - file.name
+      - severity
+      - status
+      - owner

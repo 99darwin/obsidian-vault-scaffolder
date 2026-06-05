@@ -1,0 +1,40 @@
+filters:
+  and:
+    - type == "open-question"
+views:
+  - type: table
+    name: All Open Questions
+    order:
+      - file.name
+      - priority
+      - status
+      - needs_resolution_by
+      - owner
+      - project
+    sort:
+      - property: priority
+        direction: ASC
+      - property: needs_resolution_by
+        direction: ASC
+
+  - type: table
+    name: High Priority
+    filters:
+      and:
+        - priority == "high"
+        - status == "open"
+    order:
+      - file.name
+      - needs_resolution_by
+      - owner
+      - project
+
+  - type: table
+    name: Resolved
+    filters:
+      and:
+        - status == "resolved"
+    order:
+      - file.name
+      - project
+      - owner
