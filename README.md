@@ -8,7 +8,7 @@
 
 A 1500-line spec.md is a write-once, read-never artifact. The same content split into atomic notes with queryable frontmatter and database views? Navigable, linkable, and AI-friendly. This skill captures the working layout so you go from *"here's my spec"* to *"here's a knowledge base I'll actually use"* in one command.
 
-**Live landing page**: [99darwin.github.io/obsidian-vault-scaffolder](https://99darwin.github.io/obsidian-vault-scaffolder)
+**Live landing page**: [obsidian-skill.nickysap.dev](https://obsidian-skill.nickysap.dev)
 
 ## What it does
 
